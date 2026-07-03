@@ -11,5 +11,10 @@
     "material_fee": ["材料费"],
     "labor_fee": ["人工费"],
     "measure_fee": ["措施费"]
+  },
+  "output_columns": {
+    "material_fee": "核算材料费",
+    "labor_fee": "核算人工费",
+    "measure_fee": "核算措施费"
   }
 }

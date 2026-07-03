@@ -14,6 +14,8 @@ from src.pricing.engine import price_item
 
 @dataclass
 class ColumnMap:
+    """原清单列映射（只读，不覆盖原有价格列）"""
+
     category: int | None = None
     name: int | None = None
     description: int | None = None
@@ -23,7 +25,15 @@ class ColumnMap:
     material_fee: int | None = None
     labor_fee: int | None = None
     measure_fee: int | None = None
-    remark: int | None = None
+
+
+@dataclass
+class OutputColumnMap:
+    """表格末尾追加的核算结果列（0-based index）"""
+
+    material_fee: int
+    labor_fee: int
+    measure_fee: int
 
 
 def _normalize_header(value: Any) -> str:
@@ -32,20 +42,29 @@ def _normalize_header(value: Any) -> str:
     return str(value).strip().replace("\n", "")
 
 
-def _find_column(headers: list[str], aliases: list[str]) -> int | None:
+def _find_column(headers: list[str], aliases: list[str], *, exact: bool = False) -> int | None:
     for idx, header in enumerate(headers):
         for alias in aliases:
-            if alias in header or header in alias:
+            if exact:
+                if header == alias:
+                    return idx
+            elif alias == header or alias in header or header in alias:
                 return idx
     return None
 
 
+def _read_headers(sheet: Worksheet, header_row: int) -> list[str]:
+    return [
+        _normalize_header(sheet.cell(header_row, col).value)
+        for col in range(1, sheet.max_column + 1)
+    ]
+
+
 def build_column_map(sheet: Worksheet, config: dict) -> ColumnMap:
     header_row = config["header_row"]
-    headers = [_normalize_header(sheet.cell(header_row, col).value) for col in range(1, sheet.max_column + 1)]
+    headers = _read_headers(sheet, header_row)
     columns = config["columns"]
 
-    remark_col = _find_column(headers, ["备注", "说明", "核算说明"])
     col_map = ColumnMap(
         category=_find_column(headers, columns["category"]),
         name=_find_column(headers, columns["name"]),
@@ -56,7 +75,6 @@ def build_column_map(sheet: Worksheet, config: dict) -> ColumnMap:
         material_fee=_find_column(headers, columns["material_fee"]),
         labor_fee=_find_column(headers, columns["labor_fee"]),
         measure_fee=_find_column(headers, columns["measure_fee"]),
-        remark=remark_col,
     )
 
     if col_map.name is None:
@@ -64,6 +82,39 @@ def build_column_map(sheet: Worksheet, config: dict) -> ColumnMap:
     if col_map.quantity is None:
         raise ValueError("未找到工程量列，请检查表头是否包含：工程量/面积")
     return col_map
+
+
+def ensure_output_columns(sheet: Worksheet, config: dict) -> OutputColumnMap:
+    """在表格末尾追加核算结果列；若已存在则复用，避免重复追加。"""
+    header_row = config["header_row"]
+    headers = _read_headers(sheet, header_row)
+    output_cfg = config["output_columns"]
+
+    mat_name = output_cfg["material_fee"]
+    labor_name = output_cfg["labor_fee"]
+    measure_name = output_cfg["measure_fee"]
+
+    mat_col = _find_column(headers, [mat_name], exact=True)
+    labor_col = _find_column(headers, [labor_name], exact=True)
+    measure_col = _find_column(headers, [measure_name], exact=True)
+
+    if mat_col is not None and labor_col is not None and measure_col is not None:
+        return OutputColumnMap(
+            material_fee=mat_col,
+            labor_fee=labor_col,
+            measure_fee=measure_col,
+        )
+
+    start_col = sheet.max_column + 1
+    sheet.cell(header_row, start_col, mat_name)
+    sheet.cell(header_row, start_col + 1, labor_name)
+    sheet.cell(header_row, start_col + 2, measure_name)
+
+    return OutputColumnMap(
+        material_fee=start_col - 1,
+        labor_fee=start_col,
+        measure_fee=start_col + 1,
+    )
 
 
 def _cell_value(sheet: Worksheet, row: int, col: int | None) -> str:
@@ -114,26 +165,20 @@ def read_bill_items(sheet: Worksheet, config: dict) -> list[BillItem]:
 
 def write_costs(
     sheet: Worksheet,
-    col_map: ColumnMap,
+    output_cols: OutputColumnMap,
     row: int,
     cost: CostBreakdown,
 ) -> None:
-    if col_map.material_fee is not None and cost.matched:
-        sheet.cell(row, col_map.material_fee + 1, cost.material_total)
-    if col_map.labor_fee is not None and cost.matched:
-        sheet.cell(row, col_map.labor_fee + 1, cost.labor_total)
-    if col_map.measure_fee is not None and cost.matched:
-        sheet.cell(row, col_map.measure_fee + 1, cost.measure_fee)
-    if col_map.remark is not None:
-        if cost.matched:
-            detail = "；".join(d["子目"] for d in cost.details)
-            sheet.cell(
-                row,
-                col_map.remark + 1,
-                f"已核算 单价:人工{cost.labor_unit}+材料{cost.material_unit}元/m² [{detail}]",
-            )
-        else:
-            sheet.cell(row, col_map.remark + 1, f"未核算: {cost.message}")
+    """将核算结果写入表格末尾追加列，不覆盖原清单价格。"""
+    if not cost.matched:
+        sheet.cell(row, output_cols.material_fee + 1, "")
+        sheet.cell(row, output_cols.labor_fee + 1, "")
+        sheet.cell(row, output_cols.measure_fee + 1, "")
+        return
+
+    sheet.cell(row, output_cols.material_fee + 1, cost.material_total)
+    sheet.cell(row, output_cols.labor_fee + 1, cost.labor_total)
+    sheet.cell(row, output_cols.measure_fee + 1, cost.measure_fee)
 
 
 def process_workbook(input_path: Path, output_path: Path, sheet_name: str | None = None) -> list[tuple[BillItem, CostBreakdown]]:
@@ -141,13 +186,13 @@ def process_workbook(input_path: Path, output_path: Path, sheet_name: str | None
     wb = load_workbook(input_path)
     sheet = wb[sheet_name] if sheet_name else wb.active
 
-    col_map = build_column_map(sheet, config)
+    output_cols = ensure_output_columns(sheet, config)
     items = read_bill_items(sheet, config)
     results: list[tuple[BillItem, CostBreakdown]] = []
 
     for item in items:
         cost = price_item(item)
-        write_costs(sheet, col_map, item.row, cost)
+        write_costs(sheet, output_cols, item.row, cost)
         results.append((item, cost))
 
     wb.save(output_path)
@@ -187,10 +232,10 @@ def create_sample_workbook(path: Path) -> None:
             "1.基层处理 2.找平层铺设 3.等其他全部相关工作内容",
             "m²",
             2399.49,
-            None,
-            None,
-            None,
-            None,
+            75000,
+            30000,
+            12000,
+            "原清单报价",
         ]
     )
 
