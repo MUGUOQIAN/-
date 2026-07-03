@@ -9,6 +9,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 
 from src.data_loader import load_json
 from src.models import BillItem, CostBreakdown
+from src.pricing.context import PricingContext
 from src.pricing.engine import price_item
 
 
@@ -181,17 +182,25 @@ def write_costs(
     sheet.cell(row, output_cols.measure_fee + 1, cost.measure_fee)
 
 
-def process_workbook(input_path: Path, output_path: Path, sheet_name: str | None = None) -> list[tuple[BillItem, CostBreakdown]]:
+def process_workbook(
+    input_path: Path,
+    output_path: Path,
+    sheet_name: str | None = None,
+    ctx: PricingContext | None = None,
+) -> list[tuple[BillItem, CostBreakdown]]:
     config = load_json("data/config/excel-columns.json")
     wb = load_workbook(input_path)
     sheet = wb[sheet_name] if sheet_name else wb.active
+
+    if ctx is None:
+        ctx = PricingContext.default()
 
     output_cols = ensure_output_columns(sheet, config)
     items = read_bill_items(sheet, config)
     results: list[tuple[BillItem, CostBreakdown]] = []
 
     for item in items:
-        cost = price_item(item)
+        cost = price_item(item, ctx)
         write_costs(sheet, output_cols, item.row, cost)
         results.append((item, cost))
 

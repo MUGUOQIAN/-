@@ -1,0 +1,9 @@
+{
+  "fine_aggregate_leveling": {
+    "concrete_loss_rate": 0.01,
+    "slurry_per_m2": 0.001,
+    "slurry_keywords": ["水泥浆", "纯水泥浆", "素水泥浆"],
+    "water_per_m2_per_30mm": 0.0217,
+    "note": "混凝土体积=面积×厚度；水泥浆按清单描述中是否含刷浆判断"
+  }
+}

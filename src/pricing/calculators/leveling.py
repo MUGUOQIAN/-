@@ -1,81 +1,85 @@
 from __future__ import annotations
 
-from src.data_loader import get_labor_price, get_material_price, get_measure_rate, load_json
-from src.models import CostBreakdown
+from src.data_loader import get_measure_rate
+from src.models import BillItem, CostBreakdown
+from src.pricing.context import PricingContext
+from src.pricing.price_resolver import PriceResolver
+from src.pricing.quantity import UsageBreakdown, calc_usage_for_item
 
 
-def per_m2_from_100m2(value: float) -> float:
-    return value / 100.0
+def _resolve_material_name(resolver: PriceResolver, name: str) -> str:
+    """将用量名称映射到成本表可查找的名称。"""
+    aliases = {
+        "纯水泥浆": "素水泥浆",
+        "C20细石混凝土": "C20细石混凝土",
+    }
+    for prefix in ["C15", "C20", "C25", "C30"]:
+        if name.startswith(prefix) and "细石混凝土" in name:
+            return "C20细石混凝土" if prefix == "C20" else name
+    return aliases.get(name, name)
 
 
-def calc_fine_aggregate_leveling(area: float, thickness_mm: float) -> CostBreakdown:
-    quota = load_json("data/quota/floor-leveling.json")
-    labor_rate = get_labor_price()
-    measure_rate = get_measure_rate()
+def calc_from_usage(
+    item: BillItem,
+    usage: UsageBreakdown,
+    ctx: PricingContext,
+) -> CostBreakdown:
+    area = item.quantity
+    if area <= 0:
+        return CostBreakdown(matched=False, message="工程量/面积无效")
 
     result = CostBreakdown(matched=True)
-    split_mm = quota["rules"]["thickness_split_mm"]
+    material_total = 0.0
+    labor_total = 0.0
+    details: list[dict] = []
 
-    if thickness_mm <= split_mm:
-        leveling_mm = thickness_mm
-        cushion_mm = 0
-    else:
-        leveling_mm = quota["rules"]["over_60mm"]["leveling_mm"]
-        cushion_mm = thickness_mm - leveling_mm
-
-    q_level = quota["quotas"]["细石混凝土找平层_30mm"]
-    scale = leveling_mm / q_level["thickness_mm"]
-
-    labor_per_m2 = per_m2_from_100m2(q_level["consumption"]["综合工日"]) * scale
-    conc_per_m2 = per_m2_from_100m2(q_level["consumption"]["C20细石混凝土"]) * scale
-    slurry_per_m2 = per_m2_from_100m2(q_level["consumption"]["素水泥浆"])
-    water_per_m2 = per_m2_from_100m2(q_level["consumption"]["水"]) * scale
-
-    labor_cost = labor_per_m2 * labor_rate
-    mat_cost = (
-        conc_per_m2 * get_material_price("C20细石混凝土")
-        + slurry_per_m2 * get_material_price("素水泥浆")
-        + water_per_m2 * get_material_price("水")
-    )
-
-    result.labor_unit += labor_cost
-    result.material_unit += mat_cost
-    result.details.append(
-        {
-            "子目": f"细石混凝土找平层 {leveling_mm}mm",
-            "定额": q_level["code"],
-            "人工_元_m2": round(labor_cost, 2),
-            "材料_元_m2": round(mat_cost, 2),
-        }
-    )
-
-    if cushion_mm > 0:
-        q_cushion = quota["quotas"]["混凝土垫层_C20"]
-        volume_per_m2 = cushion_mm / 1000.0
-        labor_per_m2_c = q_cushion["consumption_per_m3"]["综合工日"] * volume_per_m2
-        conc_per_m2_c = q_cushion["consumption_per_m3"]["C20细石混凝土"] * volume_per_m2
-        water_per_m2_c = q_cushion["consumption_per_m3"]["水"] * volume_per_m2
-
-        labor_cost_c = labor_per_m2_c * labor_rate
-        mat_cost_c = (
-            conc_per_m2_c * get_material_price("C20细石混凝土")
-            + water_per_m2_c * get_material_price("水")
-        )
-
-        result.labor_unit += labor_cost_c
-        result.material_unit += mat_cost_c
-        result.details.append(
+    for mat in usage.materials:
+        lookup_name = _resolve_material_name(ctx.resolver, mat.name)
+        price_info = ctx.resolver.resolve(lookup_name, item_type="material", unit=mat.unit)
+        cost = mat.quantity * price_info.price
+        material_total += cost
+        details.append(
             {
-                "子目": f"细石混凝土垫层 {cushion_mm}mm",
-                "定额": q_cushion["code"],
-                "人工_元_m2": round(labor_cost_c, 2),
-                "材料_元_m2": round(mat_cost_c, 2),
+                "类型": "材料",
+                "名称": mat.name,
+                "用量": mat.quantity,
+                "单位": mat.unit,
+                "单价": price_info.price,
+                "单价来源": price_info.source,
+                "金额": round(cost, 2),
+                "计算式": mat.formula,
             }
         )
 
-    result.labor_unit = round(result.labor_unit, 2)
-    result.material_unit = round(result.material_unit, 2)
-    result.labor_total = round(result.labor_unit * area, 2)
-    result.material_total = round(result.material_unit * area, 2)
-    result.measure_fee = round((result.labor_total + result.material_total) * measure_rate, 2)
+    for lab in usage.labor:
+        price_info = ctx.resolver.resolve(lab.name, item_type="labor", unit=lab.unit)
+        cost = lab.quantity * price_info.price
+        labor_total += cost
+        details.append(
+            {
+                "类型": "人工",
+                "名称": lab.name,
+                "用量": lab.quantity,
+                "单位": lab.unit,
+                "单价": price_info.price,
+                "单价来源": price_info.source,
+                "金额": round(cost, 2),
+                "计算式": lab.formula,
+            }
+        )
+
+    measure_rate = get_measure_rate()
+    result.material_total = round(material_total, 2)
+    result.labor_total = round(labor_total, 2)
+    result.material_unit = round(material_total / area, 2)
+    result.labor_unit = round(labor_total / area, 2)
+    result.measure_fee = round((result.material_total + result.labor_total) * measure_rate, 2)
+    result.details = details
     return result
+
+
+def calc_fine_aggregate_leveling(item: BillItem, ctx: PricingContext) -> CostBreakdown:
+    usage = calc_usage_for_item(item)
+    if usage is None:
+        return CostBreakdown(matched=False, message="无法根据清单描述计算材料用量")
+    return calc_from_usage(item, usage, ctx)
