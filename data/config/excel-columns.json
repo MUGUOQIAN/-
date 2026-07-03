@@ -1,0 +1,15 @@
+{
+  "header_row": 1,
+  "data_start_row": 2,
+  "columns": {
+    "category": ["分部", "分部工程", "专业", "工程类别"],
+    "name": ["清单名称", "项目名称", "名称", "清单项", "子目名称"],
+    "description": ["项目特征", "项目描述", "特征描述", "做法"],
+    "work_content": ["工作内容"],
+    "unit": ["单位", "计量单位"],
+    "quantity": ["工程量", "面积", "数量"],
+    "material_fee": ["材料费"],
+    "labor_fee": ["人工费"],
+    "measure_fee": ["措施费"]
+  }
+}
