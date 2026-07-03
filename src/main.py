@@ -14,7 +14,7 @@ from src.pricing.context import PricingContext
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="装修预算专家 - 根据报价清单核算材料费、人工费及措施费，并写回 Excel",
+        description="装修预算专家 - 根据报价清单核算材料费、人工费并写回 Excel",
     )
     parser.add_argument("input", nargs="?", help="输入 Excel 文件路径")
     parser.add_argument("-o", "--output", help="输出 Excel 文件路径（默认在输入文件名后加 _核算）")
@@ -90,7 +90,6 @@ def main(argv: list[str] | None = None) -> int:
 
     total_material = 0.0
     total_labor = 0.0
-    total_measure = 0.0
     matched_count = 0
 
     for item, cost in results:
@@ -100,11 +99,10 @@ def main(argv: list[str] | None = None) -> int:
             matched_count += 1
             total_material += cost.material_total
             total_labor += cost.labor_total
-            total_measure += cost.measure_fee
             print(f"    工程量: {item.quantity} {item.unit}")
             print(f"    材料费: {cost.material_total:,.2f} 元")
             print(f"    人工费: {cost.labor_total:,.2f} 元")
-            print(f"    措施费: {cost.measure_fee:,.2f} 元")
+            print(f"    直接费: {cost.direct_total:,.2f} 元")
             for detail in cost.details:
                 src = detail.get("单价来源", "")
                 print(
@@ -120,8 +118,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"成功核算: {matched_count}/{len(results)} 条")
     print(f"材料费合计: {total_material:,.2f} 元")
     print(f"人工费合计: {total_labor:,.2f} 元")
-    print(f"措施费合计: {total_measure:,.2f} 元")
-    print(f"直接费+措施费: {total_material + total_labor + total_measure:,.2f} 元")
+    print(f"直接费合计: {total_material + total_labor:,.2f} 元")
     return 0
 
 

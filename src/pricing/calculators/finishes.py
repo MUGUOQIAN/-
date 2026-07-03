@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.data_loader import get_measure_rate, load_json
+from src.data_loader import load_json
 from src.models import BillItem, CostBreakdown
 from src.pricing.calculators.leveling import calc_from_usage
 from src.pricing.context import PricingContext

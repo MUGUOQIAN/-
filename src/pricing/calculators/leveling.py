@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from src.data_loader import get_measure_rate
 from src.models import BillItem, CostBreakdown
 from src.pricing.context import PricingContext
 from src.pricing.price_resolver import PriceResolver
@@ -68,12 +67,11 @@ def calc_from_usage(
             }
         )
 
-    measure_rate = get_measure_rate()
     result.material_total = round(material_total, 2)
     result.labor_total = round(labor_total, 2)
     result.material_unit = round(material_total / area, 2)
     result.labor_unit = round(labor_total / area, 2)
-    result.measure_fee = round((result.material_total + result.labor_total) * measure_rate, 2)
+    result.measure_fee = 0.0
     result.details = details
     return result
 

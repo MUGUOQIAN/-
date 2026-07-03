@@ -34,7 +34,6 @@ class OutputColumnMap:
 
     material_fee: int
     labor_fee: int
-    measure_fee: int
 
 
 def _normalize_header(value: Any) -> str:
@@ -93,28 +92,23 @@ def ensure_output_columns(sheet: Worksheet, config: dict) -> OutputColumnMap:
 
     mat_name = output_cfg["material_fee"]
     labor_name = output_cfg["labor_fee"]
-    measure_name = output_cfg["measure_fee"]
 
     mat_col = _find_column(headers, [mat_name], exact=True)
     labor_col = _find_column(headers, [labor_name], exact=True)
-    measure_col = _find_column(headers, [measure_name], exact=True)
 
-    if mat_col is not None and labor_col is not None and measure_col is not None:
+    if mat_col is not None and labor_col is not None:
         return OutputColumnMap(
             material_fee=mat_col,
             labor_fee=labor_col,
-            measure_fee=measure_col,
         )
 
     start_col = sheet.max_column + 1
     sheet.cell(header_row, start_col, mat_name)
     sheet.cell(header_row, start_col + 1, labor_name)
-    sheet.cell(header_row, start_col + 2, measure_name)
 
     return OutputColumnMap(
         material_fee=start_col - 1,
         labor_fee=start_col,
-        measure_fee=start_col + 1,
     )
 
 
@@ -174,12 +168,10 @@ def write_costs(
     if not cost.matched:
         sheet.cell(row, output_cols.material_fee + 1, "")
         sheet.cell(row, output_cols.labor_fee + 1, "")
-        sheet.cell(row, output_cols.measure_fee + 1, "")
         return
 
     sheet.cell(row, output_cols.material_fee + 1, cost.material_total)
     sheet.cell(row, output_cols.labor_fee + 1, cost.labor_total)
-    sheet.cell(row, output_cols.measure_fee + 1, cost.measure_fee)
 
 
 def process_workbook(
