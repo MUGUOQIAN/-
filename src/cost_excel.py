@@ -105,7 +105,13 @@ def create_sample_cost_workbook(path: Path) -> None:
     sheet.title = "成本价"
     sheet.append(["材料名称", "规格", "单位", "单价", "类型"])
     sheet.append(["C20细石混凝土", "商品泵送", "m³", 415, "材料"])
+    sheet.append(["C20预拌砂浆", "", "m³", 455, "材料"])
+    sheet.append(["DS20预拌水泥砂浆", "", "m³", 485, "材料"])
     sheet.append(["素水泥浆", "", "m³", 520, "材料"])
+    sheet.append(["稀水泥浆", "", "m³", 530, "材料"])
+    sheet.append(["花岗岩石板", "20mm", "m²", 320, "材料"])
+    sheet.append(["盲道花岗岩石砖", "300*300*25", "m²", 480, "材料"])
+    sheet.append(["警示带花岗岩石材", "300*130", "m²", 350, "材料"])
     sheet.append(["水", "", "m³", 5, "材料"])
     sheet.append(["综合工日", "装饰工程", "工日", 135, "人工"])
     path.parent.mkdir(parents=True, exist_ok=True)

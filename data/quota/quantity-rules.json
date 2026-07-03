@@ -5,5 +5,32 @@
     "slurry_keywords": ["水泥浆", "纯水泥浆", "素水泥浆"],
     "water_per_m2_per_30mm": 0.0217,
     "note": "混凝土体积=面积×厚度；水泥浆按清单描述中是否含刷浆判断"
+  },
+  "stone_skirting": {
+    "default_height_mm": 120,
+    "mortar_thickness_mm": 20,
+    "stone_thickness_mm": 20,
+    "mortar_loss_rate": 0.02,
+    "stone_loss_rate": 0.03,
+    "labor_days_per_m": 0.18
+  },
+  "tactile_paving": {
+    "leveling_thickness_mm": 30,
+    "tile_thickness_mm": 25,
+    "slurry_per_m2": 0.001,
+    "mortar_loss_rate": 0.025,
+    "tile_loss_rate": 0.03,
+    "labor_days_per_m2": 0.45,
+    "exclude_fine_concrete": true
+  },
+  "warning_strip": {
+    "tile_width_mm": 130,
+    "leveling_thickness_mm": 30,
+    "tile_thickness_mm": 25,
+    "slurry_per_m2": 0.001,
+    "mortar_loss_rate": 0.025,
+    "tile_loss_rate": 0.03,
+    "labor_days_per_m2": 0.4,
+    "exclude_fine_concrete": true
   }
 }

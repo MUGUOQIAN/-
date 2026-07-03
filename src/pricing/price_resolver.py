@@ -37,10 +37,19 @@ class PriceResolver:
     def _match_cost_item(self, name: str) -> CostItem | None:
         if name in self.cost_items:
             return self.cost_items[name]
+
+        best: CostItem | None = None
+        best_len = 0
         for key, item in self.cost_items.items():
-            if name in key or key in name:
-                return item
-        return None
+            if len(key) < 2:
+                if key == name:
+                    return item
+                continue
+            if name == key or name in key or key in name:
+                if len(key) > best_len:
+                    best = item
+                    best_len = len(key)
+        return best
 
     def _lookup_json(self, name: str, item_type: str) -> PriceResult | None:
         try:
