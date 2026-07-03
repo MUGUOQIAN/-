@@ -22,7 +22,6 @@ class CostBreakdown:
     material_unit: float = 0.0
     labor_total: float = 0.0
     material_total: float = 0.0
-    measure_fee: float = 0.0
     matched: bool = False
     message: str = ""
     details: list[dict] = field(default_factory=list)
@@ -30,7 +29,3 @@ class CostBreakdown:
     @property
     def direct_total(self) -> float:
         return self.labor_total + self.material_total
-
-    @property
-    def grand_total(self) -> float:
-        return self.direct_total + self.measure_fee

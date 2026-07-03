@@ -25,7 +25,3 @@ def get_labor_price(name: str = "综合工日") -> float:
     if name not in items:
         raise KeyError(f"人工价格库中未找到: {name}")
     return float(items[name]["price"])
-
-
-def get_measure_rate() -> float:
-    return float(load_json("data/fees/measure-rates.json")["total_rate"])

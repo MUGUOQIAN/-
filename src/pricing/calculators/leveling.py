@@ -71,7 +71,6 @@ def calc_from_usage(
     result.labor_total = round(labor_total, 2)
     result.material_unit = round(material_total / area, 2)
     result.labor_unit = round(labor_total / area, 2)
-    result.measure_fee = 0.0
     result.details = details
     return result
 
