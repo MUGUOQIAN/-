@@ -1,0 +1,10 @@
+{
+  "name": "你的工作区名称",
+  "repositoryDependencies": [
+    "muguoqian@163.com/Site-cost-Accountant",
+    "muguoqian@163.com/DocMind"
+    "muguoqian@163.com/BossBuild"
+    "muguoqian@163.com/Billbrain"
+    "muguoqian@163.com/AI-Secratary"
+  ]
+}
